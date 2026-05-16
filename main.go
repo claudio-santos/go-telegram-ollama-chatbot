@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"strings"
 
@@ -9,6 +10,34 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 )
+
+type ChatMessage struct {
+	Role    string
+	Content string
+}
+
+var history = make(map[int64][]ChatMessage)
+var contextLimit int
+
+func addToHistory(userID int64, role, content string) {
+	history[userID] = append(history[userID], ChatMessage{Role: role, Content: content})
+	if len(history[userID]) > contextLimit*2 {
+		history[userID] = history[userID][2:]
+	}
+}
+
+func buildContextPrompt(userID int64) string {
+	if len(history[userID]) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("Previous conversation:\n")
+	for _, msg := range history[userID] {
+		sb.WriteString(fmt.Sprintf("%s: %s\n", msg.Role, msg.Content))
+	}
+	sb.WriteString("\n")
+	return sb.String()
+}
 
 func main() {
 	cfg, err := config.LoadConfig()
@@ -28,6 +57,8 @@ func main() {
 
 	botUsername := botInfo.UserName
 	mention := "@" + botUsername
+
+	contextLimit = cfg.ContextLimit
 
 	log.Printf("Bot @%s started", botUsername)
 
@@ -80,28 +111,42 @@ func main() {
 			continue
 		}
 
+		userID := update.Message.From.ID
+		chatID := update.Message.Chat.ID
+
 		log.Printf("[%s] %s", chatType, text)
 
-		// Clean prompt
-		prompt := strings.ReplaceAll(text, mention, "")
-		prompt = strings.TrimSpace(strings.Trim(prompt, ",.!? "))
+		var prompt strings.Builder
+		prompt.WriteString(buildContextPrompt(int64(userID)))
 
-		if prompt == "" {
-			prompt = "Hello!"
+		userText := strings.ReplaceAll(text, mention, "")
+		userText = strings.TrimSpace(strings.Trim(userText, ",.!? "))
+
+		if update.Message.ReplyToMessage != nil && update.Message.ReplyToMessage.Text != "" {
+			prompt.WriteString("Replying to: " + update.Message.ReplyToMessage.Text + "\n\n")
+		}
+
+		if userText != "" {
+			prompt.WriteString(userText)
+		} else {
+			prompt.WriteString("Hello!")
 		}
 
 		// Send typing indicator
-		typing := tgbotapi.NewChatAction(update.Message.Chat.ID, tgbotapi.ChatTyping)
+		typing := tgbotapi.NewChatAction(chatID, tgbotapi.ChatTyping)
 		bot.Send(typing)
 
 		// Get AI response
-		response, err := ai.Chat(cfg.OllamaModel, cfg.SystemPrompt, prompt)
+		response, err := ai.Chat(cfg.OllamaModel, cfg.SystemPrompt, prompt.String())
 		if err != nil {
 			log.Printf("[AI ERROR] %v", err)
 			response = "Sorry, I'm having trouble responding."
 		}
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, response)
+		addToHistory(int64(userID), "user", userText)
+		addToHistory(int64(userID), "assistant", response)
+
+		msg := tgbotapi.NewMessage(chatID, response)
 		msg.ReplyToMessageID = update.Message.MessageID
 
 		if _, err := bot.Send(msg); err != nil {

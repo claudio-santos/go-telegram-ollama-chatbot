@@ -34,7 +34,8 @@ Create a `config.json` file in the same directory as the executable:
 {
   "telegram_token": "your_bot_token_here",
   "ollama_model": "llama3.2",
-  "system_prompt": "You are a helpful Telegram chatbot. Keep responses short and conversational."
+  "system_prompt": "You are a helpful Telegram chatbot. Keep responses short and conversational.",
+  "context_limit": 5
 }
 ```
 
@@ -45,6 +46,7 @@ Create a `config.json` file in the same directory as the executable:
 | `telegram_token` | Bot token from @BotFather | Yes | - |
 | `ollama_model` | Ollama model name | No | llama3.2 |
 | `system_prompt` | Instructions for AI behavior | No | Default helpful assistant |
+| `context_limit` | Max conversation exchanges to remember per user | No | 5 |
 
 ## Usage
 
@@ -61,6 +63,7 @@ Create a `config.json` file in the same directory as the executable:
 3. In Telegram:
    - **Private chats**: Send any message, the bot replies
    - **Group chats**: Mention `@botname` or reply to the bot's message
+   - **Conversation memory**: Bot remembers your last N exchanges across all chats
 
 ### Group Privacy Note
 
@@ -71,7 +74,7 @@ By default, Telegram bots cannot see all group messages. To enable full function
 3. Go to Bot Settings > Group Privacy
 4. Turn it OFF
 
-Alternatively, add the bot as a group admin.
+**Note:** In supergroups, the bot must be an admin to receive @mentions reliably.
 
 ## System Prompt Examples
 
@@ -127,6 +130,8 @@ Bot @yourbot started
 - Responds to replies to bot messages in groups
 - Responds to all messages in private chats
 - Skips messages from other bots
+- Conversation history: remembers recent exchanges per user
+- Reply context: includes the message you're replying to
 
 ## Troubleshooting
 

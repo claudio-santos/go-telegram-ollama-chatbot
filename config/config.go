@@ -10,12 +10,14 @@ type Config struct {
 	TelegramToken string `json:"telegram_token"`
 	OllamaModel   string `json:"ollama_model"`
 	SystemPrompt  string `json:"system_prompt"`
+	ContextLimit  int    `json:"context_limit"`
 }
 
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
-		OllamaModel:  "llama3.2",
+		OllamaModel:   "llama3.2",
 		SystemPrompt: "You are a helpful Telegram chatbot. Keep responses short and conversational.",
+		ContextLimit:  5,
 	}
 
 	data, err := os.ReadFile("config.json")
